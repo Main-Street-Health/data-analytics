@@ -1,0 +1,23 @@
+name: data-analytics
+channels:
+  - conda-forge
+dependencies:
+  - scikit-learn=1.1.3
+  - matplotlib
+  - tqdm
+  - boto3
+  - pandas
+  - seaborn
+  - pyarrow
+  - jupyterlab
+  - sqlalchemy
+  - psycopg2
+  - pymysql
+  - sqlalchemy-bigquery
+  - xlrd
+  - lxml
+  - pyxlsb
+  - openpyxl
+  - sagemaker
+  - odfpy
+prefix: /Users/bp/miniforge3/envs/data-analytics
