@@ -207,6 +207,13 @@ BEGIN
 --     and pqm.patient_id = 98173 and pqm.measure_key = 'trc_mrp_medication_reconciliation_post_discharge';
 --       and ptr.id = 331
     ;
+--
+--     delete from _patient_measures pm
+--     where not exists(
+--     select 1 from junk.reveleer_missing_measures_resend_pqms_20240801  j
+--     where  j.pqm_id = pm.patient_quality_measure_id
+--     );
+
 
 --     -- MSSP
 --     INSERT

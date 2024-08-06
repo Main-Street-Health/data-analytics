@@ -333,3 +333,110 @@ p.id IN (
                    1443745, 1443746, 1443754, 1443756, 1443761, 1443762, 1443763, 1443764, 1443770, 1443924, 1444147,
                    1444306, 325229, 325455, 443044, 443917, 447108, 967164, 967532
         )
+
+------------------------------------------------------------------------------------------------------------------------
+/*  */
+------------------------------------------------------------------------------------------------------------------------
+SELECT
+    m.patient_id
+  , m.patient_measure_id
+  , m.measure_key
+  , pm.measure_status_key
+  , m.next_fill_date
+  , m.adr
+  , m.pdc_to_date
+  , m.measure_source_key
+  , wf.id wf_id
+  , wf.is_active
+  , wf.is_closed
+  , wf.is_reopened
+  , wf.compliance_check_date
+  , pf.id pf_id
+  , pf.drug_description
+  , pf.order_status
+  , pf.medication_status
+  , pf.pharmacy_verified_fill_date
+  , pf.pharmacy_verified_days_supply
+  , pf.system_verified_closed_at
+  , pf.inserted_at
+  , pf.updated_at
+  , pt.status
+  , pt.id
+FROM
+    fdw_member_doc.qm_patient_measures pm
+    JOIN fdw_member_doc.qm_pm_med_adh_metrics m ON pm.id = m.patient_measure_id
+    LEFT JOIN fdw_member_doc.qm_pm_med_adh_wfs wf ON m.id = wf.qm_pm_med_adh_metric_id
+    LEFT JOIN fdw_member_doc.qm_pm_med_adh_potential_fills pf ON pf.qm_pm_med_adh_wf_id = wf.id
+    LEFT JOIN fdw_member_doc.patient_tasks pt ON pf.patient_task_id = pt.id
+    --     LEFT JOIN patient_medication_fills pmf ON pmf.patient_id = pm.patient_id
+--         AND pmf.measure_key = pm.measure_key
+--         AND DATE_PART('year', pmf.start_date) = pm.operational_year
+--    left join qm_pm_med_adh_synth_periods sp on pm.id = sp.patient_measure_id
+WHERE
+    pm.patient_id = 124121
+    -- pt.id = 
+ORDER BY pm.measure_key, pf.id
+;
+SELECT adr, *
+FROM
+    fdw_member_doc_stage.qm_pm_med_adh_mco_measures
+WHERE
+    patient_id = 124121
+ORDER BY
+    inserted_at DESC
+;
+SELECT *
+FROM
+    fdw_member_doc.payers where id = 1;
+
+SELECT
+  *
+FROM
+ raw.aetna_quality_rx_part_d
+-- WHERE member_last_name = 'HUBBARD' and member_first_name = 'KENNETH'
+--  measure = 'ADH-DIABETES'
+--  AND humana_patient_id = 'H7920776300'
+ORDER BY inserted_at DESC
+;
+call staging.rts_aetna_gap_rx_adherence();
+
+------------------------------------------------------------------------------------------------------------------------
+/* revert */
+------------------------------------------------------------------------------------------------------------------------
+-- SELECT pf.patient_task_id, wf.*
+SELECT pf.patient_task_id, *
+FROM
+    qm_pm_med_adh_wfs wf
+    JOIN member_doc.public.qm_pm_med_adh_potential_fills pf ON pf.qm_pm_med_adh_wf_id = wf.id
+WHERE
+      pf.patient_task_id IN (1468804, 1425641, 1535330, 1604784, 1430993)
+  AND NOT wf.is_active
+  AND NOT wf.is_system_verified_closed
+and exists(select 1 from qm_pm_med_adh_wfs wf2
+                   where wf2.patient_measure_id = wf.patient_measure_id and wf2.id > wf.id
+                    )
+;
+SELECT *
+FROM
+    qm_pm_med_adh_wfs WHERE patient_measure_id = 763335 order by id;
+
+
+
+UPDATE qm_pm_med_adh_wfs wf
+SET
+    is_active = TRUE, compliance_check_date = NOW()::DATE, updated_at = NOW(), updated_by_id = 98
+FROM
+    member_doc.public.qm_pm_med_adh_potential_fills pf
+WHERE
+      pf.qm_pm_med_adh_wf_id = wf.id
+  AND pf.patient_task_id IN (1425641, 1535330, 1604784, 1430993)
+;
+
+
+
+
+1426439
+SELECT *
+FROM
+    qm_pm_med_adh_metrics WHERE patient_measure_id = 349571
+;

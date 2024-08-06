@@ -122,3 +122,19 @@ SELECT pg_catalog.setval('public.cc_calls_id_seq', (select max(id) from public.c
 -- SELECT * FROM rn_pr_external_wfs;
 -- SELECT * FROM rn_pr_scheduled_events;
 -- SELECT * FROM rn_pr_searches;
+
+SELECT * FROM cc_patient_referrals where is_active;
+SELECT *
+FROM
+    users where id = 25830;
+
+SELECT *
+FROM
+    member_doc.oban.oban_jobs
+WHERE
+--       state = 'available'
+    true
+  AND queue != 'file_router_retriever'
+and args->>'sql' ~* 'polaris'
+order by id desc
+;
