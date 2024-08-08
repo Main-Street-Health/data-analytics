@@ -33,9 +33,30 @@ WHERE
   AND inserted_at >= '2024-08-01'
 GROUP BY
     1;
+
+WITH
+    job_ouput_ids AS ( SELECT
+                           (args -> 'dpoc_bulk_export_job_output_id')::BIGINT dpoc_bulk_export_job_output_id
+                       FROM
+                           oban.oban_jobs
+                       WHERE
+                             queue = 'dpoc_bulk_export_worker'
+                         AND state = 'discarded'
+                         AND inserted_at >= '2024-08-01' )
 SELECT *
 FROM
-    dpoc_patients where id = 1969938;
+    job_ouput_ids joi
+    JOIN dpoc_bulk_export_job_outputs jo ON jo.id = joi.dpoc_bulk_export_job_output_id
+where not jo.is_processed
+;
+
+
+    ;
+
+
+SELECT *
+FROM
+    dpoc_patients where '5F15VU2WH56' = any(mbis);
 
 SELECT * FROM dpoc_patients where '1Y50YH3WU38' = any(mbis);
 SELECT *

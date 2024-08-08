@@ -9,7 +9,9 @@ VALUES
     }', '{}', 0, 5, NOW(), NOW(), NULL,
      NULL, NULL,
      NULL, 0, '{}', '{}', NULL, 'available');
-
+SELECT *
+FROM
+    oban_jobs where queue = 'md_portals_rosters' order by id desc;
 
 INSERT
 INTO
