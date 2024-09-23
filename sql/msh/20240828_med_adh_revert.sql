@@ -175,3 +175,6 @@ WHERE
     -- pt.id =
 ORDER BY pm.measure_key, pf.id
 ;
+
+
+ pg_dump --data-only -t rn_provider_insurances -h "msh-prd-member-doc.cluster-culqpk9pcgmf.us-east-1.rds.amazonaws.com" -d member_doc -U postgres | psql -U postgres member_doc -h "msh-dev-member-doc.cluster-cmobqwxovjip.us-east-1.rds.amazonaws.com"

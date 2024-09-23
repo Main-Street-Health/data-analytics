@@ -11,16 +11,23 @@ returning *
 ;
 */
 
-
+select * from deus_dpc_stage_monthly_new_fn();
 
 SELECT *
 FROM
     oban.oban_jobs
 WHERE
       queue = 'dpoc_worker'
-  AND id >= 163981570
+  AND id >= 171459956
 ORDER BY
     id ;
+
+-- UPDATE oban.oban_jobs
+-- SET
+--     max_attempts = max_attempts + 1, state = 'available', discarded_at = NULL, scheduled_at = NOW()
+-- WHERE
+--     id = 172131540;
+
 
 SELECT
     state
@@ -30,7 +37,7 @@ FROM
 WHERE
       queue = 'dpoc_bulk_export_worker'
 -- worker = 'Deus.DPOC.BulkExportAPIWorker'
-  AND inserted_at >= '2024-08-01'
+  AND inserted_at >= '2024-09-01'
 GROUP BY
     1;
 
