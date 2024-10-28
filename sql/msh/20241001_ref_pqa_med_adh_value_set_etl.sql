@@ -208,3 +208,80 @@ WHERE
                   AND j.code = vs.code )
 ;
 
+------------------------------------------------------------------------------------------------------------------------
+/* need to update existing coop meds measure keys */
+------------------------------------------------------------------------------------------------------------------------
+/* switch to analytics */
+DROP TABLE IF EXISTS _mismatched_measure_keys;
+CREATE TEMP TABLE _mismatched_measure_keys AS
+SELECT pm.analytics_id, pm.measure_key old_key, mamm.coop_measure_key new_key
+FROM
+    fdw_member_doc.patient_medication_fills pm
+    LEFT JOIN ref.med_adherence_measures m
+    JOIN ref.med_adherence_measure_names mamm ON mamm.analytics_measure_id = m.measure_id
+    JOIN ref.med_adherence_value_sets vs ON m.value_set_id = vs.value_set_id
+         ON vs.code = pm.ndc
+             AND pm.start_date BETWEEN vs.from_date AND vs.thru_date -- only have ndc's
+             AND m.measure_id IN ('PDC-DR', 'PDC-RASA', 'PDC-STA')
+             AND m.is_med = 'Y'
+             AND m.is_exclusion = 'N'
+             AND m.measure_version = '2024'
+where pm.measure_key is distinct from mamm.coop_measure_key
+;
+SELECT
+    old_key
+  , new_key
+  , COUNT(*)
+FROM
+    _mismatched_measure_keys
+GROUP BY
+    1, 2;
+SELECT *
+FROM
+    _mismatched_measure_keys
+WHERE
+    old_key LIKE 'med#_adherence#_hypertension' ESCAPE '#' AND new_key LIKE 'med#_adherence#_cholesterol' ESCAPE '#';
+SELECT *
+FROM
+    fdw_member_doc.patient_medication_fills WHERE analytics_id = -3092643;
+SELECT *
+FROM
+    _mismatched_measure_keys m
+join fdw_member_doc.patient_medication_fills f on f.analytics_id = m.analytics_id
+WHERE
+old_key LIKE 'med#_adherence#_cholesterol' ESCAPE '#' AND new_key IS NULL
+SELECT *
+FROM
+    analytics.ref.med_adherence_value_sets WHERE description ~* 'ATORVASTATIN 40 MG TABLET';
+
+
+-- INSERT
+-- INTO
+--     ref.med_adherence_value_sets (value_set_id, value_set_subgroup, value_set_item, code_type, code, description,
+--                                   route, dosage_form, ingredient, strength, units, is_recycled, from_date, thru_date,
+--                                   attribute_type, attribute_value, inserted_at, updated_at)
+-- VALUES
+--     ('STATINS', 'STATINS', 'ATORVASTATIN', 'NDC', '70710177200', 'ATORVASTATIN 40 MG TABLET', 'ORAL', 'TABLET',
+--      NULL, NULL, NULL, 'N', '1900-01-01', '2099-12-31', NULL, 'Manually added by BP 2024-10-07', now(),
+-- now())
+-- returning id
+-- 188299
+;
+-- create table stage.pat_med_fills_upd_20241007 (analytics_id bigint PRIMARY KEY , new_measure_key text);
+-- call cb.x_util_rebuild_fdw_stage();
+INSERT
+INTO
+    fdw_member_doc_stage.pat_med_fills_upd_20241007 (analytics_id, new_measure_key)
+    select analytics_id, new_key
+from    _mismatched_measure_keys m
+;
+-- back to member doc
+
+UPDATE patient_medication_fills f
+SET
+    measure_key = m.new_measure_key, updated_at = NOW()
+FROM
+    stage.pat_med_fills_upd_20241007 m
+WHERE
+    m.analytics_id = f.analytics_id
+;
