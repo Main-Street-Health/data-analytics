@@ -1,5 +1,5 @@
-SELECT * FROM junk.reveleer_inactives_20241025;
-create unique INDEX on junk.reveleer_inactives_20241025(msh_chase_id);
+SELECT * FROM junk.reveleer_inactives_20241101;
+create unique INDEX on junk.reveleer_inactives_20241101(msh_chase_key);
 
 DROP TABLE IF EXISTS _active_reco;
 CREATE TEMP TABLE _active_reco AS
@@ -11,12 +11,12 @@ SELECT
   , rc.patient_id
   , qpm.measure_key
   , qpm.is_active
-  , i.msh_chase_id IS NOT NULL on_prev_inactive_file
+  , i.msh_chase_key IS NOT NULL on_prev_inactive_file
 FROM
     reveleer_chases rc
     JOIN reveleer_projects rp ON rc.reveleer_project_id = rp.id
     JOIN fdw_member_doc.qm_patient_measures qpm ON qpm.id = ANY (rc.qm_patient_measure_ids)
-    LEFT JOIN junk.reveleer_inactives_20241025 i ON rc.id = i.msh_chase_id
+    LEFT JOIN junk.reveleer_inactives_20241101 i ON rc.id = i.msh_chase_key
 WHERE
       rc.yr = 2024
   AND qpm.operational_year = 2024
@@ -25,10 +25,14 @@ WHERE
 
 
 ;
--- reveleer_inactive_reconciliation_20241028
+-- reveleer_inactive_reconciliation_20241101
 SELECT *
 FROM
     _active_reco;
+
+------------------------------------------------------------------------------------------------------------------------
+/* old below */
+------------------------------------------------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------------------------------------------------
 /* DOCS */
@@ -132,20 +136,13 @@ FROM
     _sent_chases sc
     JOIN fdw_member_doc.qm_patient_measures pm ON sc.pqm_id = pm.id
     JOIN fdw_member_doc.patients p ON pm.patient_id = p.id
-;
-------------------------------------------------------------------------------------------------------------------------
-/* confirm closed list */
-------------------------------------------------------------------------------------------------------------------------
--- reveleer_confirm_on_plan_close_list_most_recent_2241107
-SELECT
-    j.*
-  , pm.id pqm_id
-  , pm.measure_status_key
-FROM
-    junk.reveleer_confirm_on_plan_close_list_most_recent_2241107 j
-    JOIN reveleer_chases rc ON rc.id = j.msh_chase_id
-    JOIN fdw_member_doc.qm_patient_measures pm ON pm.id = ANY (rc.qm_patient_measure_ids)
+
+
+
+
+
 ;
 
-SELECT * FROM fdw_member_doc.sure_scripts_pharmacies;
-SELECT * FROM raw.lab_corp_response;
+
+
+;
