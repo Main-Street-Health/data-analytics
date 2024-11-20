@@ -23,10 +23,13 @@ WHERE
   AND qpm.operational_year = 2024
 
 
-
-
 ;
 -- reveleer_inactive_reconciliation_20241108
 SELECT *
 FROM
     _active_reco;
+select now();
+call sp_reveleer_data_stager();
+
+
+

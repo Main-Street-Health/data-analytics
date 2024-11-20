@@ -23,7 +23,7 @@ select * from deus_dpc_stage_monthly_incremental_fn();
 --     state = 'available',
 --     discarded_at = NULL
 -- WHERE
---     id = 187326528;
+--     id = 188891932;
 
 
 SELECT -- errors[oban_jobs.attempt], *
@@ -32,9 +32,43 @@ FROM
     oban.oban_jobs
 WHERE
       queue = 'dpoc_worker'
-  AND id >= 186796340
+  AND id >= 188891932
+-- 188891932
 ORDER BY
     id ;
+SELECT
+    state
+  , COUNT(*)
+FROM
+    oban.oban_jobs
+WHERE
+      queue = 'dpoc_bulk_export_worker'
+-- worker = 'Deus.DPOC.BulkExportAPIWorker'
+  AND inserted_at >= '2024-11-11'
+GROUP BY
+    1;
+SELECT
+    *
+FROM
+    oban.oban_jobs
+WHERE
+      queue = 'dpoc_bulk_export_worker'
+-- worker = 'Deus.DPOC.BulkExportAPIWorker'
+  and state = 'discarded'
+  AND inserted_at >= '2024-11-01'
+    ;
+
+
+SELECT *
+FROM
+    dpoc_practitioners
+-- where dpoc_id in (
+--     'bd8234bc-1c4c-484b-b4ef-be914c85bf10', '23b3b8b8-a369-4cb7-9d53-f6ce3f7d11f8'
+--     )
+where is_active
+  and is_registered
+
+;
 
 
 -- 2024-11-08T04:13:12.909Z
@@ -167,7 +201,41 @@ WHERE
   AND NOT is_registered
     ;
 
+------------------------------------------------------------------------------------------------------------------------
+/* 2FE4AJ8FR74 */
+------------------------------------------------------------------------------------------------------------------------
+SELECT dp.source_id, dp.dpoc_id, dp.mbi, dp.mbis, dp.is_registered, dp.bene_id, dp.is_active, p.full_name, p.dob, p.status, p.substatus
+FROM
+    dpoc_patients dp
+join fdw_member_doc.patients p on p.id = dp.source_id
+WHERE
+    '2FE4AJ8FR74' = ANY (mbis);
 
+delete from dpoc_patients where source_id = 1532326
+update dpoc_patients set source_id = 1532326 where source_id = 336086
+SELECT is_dpc
+FROM
+    fdw_member_doc.supreme_pizza where patient_id = 1532326;
+
+UPDATE dpoc_patients
+SET
+    is_active = FALSE
+WHERE
+      '2FE4AJ8FR74' = ANY (mbis)
+  AND NOT is_registered
+    ;
+
+DELETE
+FROM
+
+WHERE;
+select patient_id, mbi from fdw_member_doc.patient_mbi_and_medicare_dates where patient_id in (1532326,336086);
+select patient_id, mbi from gmm.global_members where patient_id in (1532326,336086);
+4FK5VY4FK94
+| source\_id |
+| :--- |
+| 1532326 |
+| 336086 |
 
 
 SELECT DISTINCT
