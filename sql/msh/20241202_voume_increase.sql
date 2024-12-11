@@ -216,3 +216,66 @@ limit 1
 SELECT *
 FROM
     junk.mdp_max_id_to_del;
+DELETE  from bk_up.md_portal_suspects WHERE id <= 380061837;
+
+------------------------------------------------------------------------------------------------------------------------
+/* pg repack */
+------------------------------------------------------------------------------------------------------------------------
+
+CREATE EXTENSION pg_repack;
+
+SELECT
+    schemaname
+--     t.relname,
+  , SUM(PG_TOTAL_RELATION_SIZE(relid))                 AS total_size
+  , PG_SIZE_PRETTY(SUM(PG_TOTAL_RELATION_SIZE(relid))) AS total_size_h
+  , PG_SIZE_PRETTY(SUM(PG_TABLE_SIZE(relid)))          AS table_size_h
+--   , PG_SIZE_PRETTY(SUM(PG_TOTAL_RELATION_SIZE(relid) - PG_TABLE_SIZE(relid))) AS bloat_size_h
+--     pg_total_relation_size(relid) - pg_table_size(relid) AS bloat_size
+FROM
+    pg_stat_user_tables t
+-- where schemaname in ('prd', 'rawrp')
+GROUP BY
+    1
+ORDER BY 2 desc
+;
+
++------------+-------------+------------+------------+
+|schemaname  |total_size   |total_size_h|table_size_h|
++------------+-------------+------------+------------+
+|rawrp       |5377580007424|5008 GB     |4754 GB     |
+|bk_up       |1988818780160|1852 GB     |1615 GB     |
+|lk          |933786476544 |870 GB      |767 GB      |
+|raw         |900515749888 |839 GB      |797 GB      |
+|integrations|669603463168 |624 GB      |484 GB      |
+|public      |588796952576 |548 GB      |416 GB      |
+|junk        |419251281920 |390 GB      |382 GB      |
+|prd         |388265672704 |362 GB      |215 GB      |
+|staging     |123211587584 |115 GB      |100 GB      |
+|audit       |101492301824 |95 GB       |86 GB       |
+|mssp        |95135358976  |89 GB       |59 GB       |
+|dh          |67088490496  |62 GB       |60 GB       |
+|rawcms      |66564947968  |62 GB       |56 GB       |
++------------+-------------+------------+------------+
+-- tried prd
+
+pg_repack -c public --no-superuser-check --no-kill-backend \
+-- -h msh-prd-analytics.cluster-culqpk9pcgmf.us-east-1.rds.amazonaws.com -U postgres analytics
+
+SELECT
+    schemaname
+  , relname         AS TableName
+  , n_live_tup      AS LiveTuples
+  , n_dead_tup      AS DeadTuples
+  , n_tup_del
+  , n_tup_upd
+  , last_autovacuum AS Autovacuum
+  , last_vacuum     AS ManualVacuum
+  , NOW()
+FROM
+    pg_stat_user_tables
+ORDER BY
+    n_dead_tup DESC
+;
+
+
