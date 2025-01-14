@@ -23,7 +23,7 @@ returning *
 --     state = 'available',
 --     discarded_at = NULL
 -- WHERE
---     id = 197344774;
+--     id = 204503685;
 
 
 SELECT -- errors[oban_jobs.attempt], *
@@ -35,13 +35,7 @@ WHERE
   AND id >= 202932875
 -- 188891932
 ORDER BY
-    id ;
-
-select * from  msh_physicians where npi = '1518758855';
-update msh_physicians set npi = '1518578855' where npi = '1518758855';
-
-select * from  msh_physicians where npi = '1720431916';
-update msh_physicians set npi = '1720461916' where npi = '1720431916';
+    id desc;
 
 
 -- SELECT * FROM dpoc_practitioner_group_patients where npi = '1518758855' ;
@@ -51,6 +45,8 @@ update msh_physicians set npi = '1720461916' where npi = '1720431916';
 -- update dpoc_practitioners  set npi = '1720461916' where npi = '1720431916';
 --
 
+    update
+    msh_physicians set npi = '1417586819', updated_at = now() WHERE npi = '147586819';
 
 -- update oban.oban_jobs set state = 'discarded' where id = 194677239
 
@@ -62,7 +58,7 @@ FROM
 WHERE
       queue = 'dpoc_bulk_export_worker'
 -- worker = 'Deus.DPOC.BulkExportAPIWorker'
-  AND inserted_at >= '2024-12-09'
+  AND inserted_at >= '2025-01-01'
 GROUP BY
     1;
 SELECT * FROM oban.oban_queues where name = 'dpoc_bulk_export_worker';
