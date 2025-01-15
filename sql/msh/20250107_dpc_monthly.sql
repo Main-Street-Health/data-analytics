@@ -26,8 +26,11 @@ returning *
 --     id = 204503685;
 
 
-SELECT -- errors[oban_jobs.attempt], *
-state, *
+SELECT
+    errors[attempt]
+  , state
+  , *
+-- state, *
 FROM
     oban.oban_jobs
 WHERE
@@ -35,18 +38,20 @@ WHERE
   AND id >= 202932875
 -- 188891932
 ORDER BY
-    id desc;
+    id DESC;
 
 
--- SELECT * FROM dpoc_practitioner_group_patients where npi = '1518758855' ;
+
+SELECT * FROM msh_physicians where npi = '1902479754' ;
 -- update dpoc_practitioner_group_patients  set npi = '1518578855' where npi = '1518758855';
 -- update dpoc_practitioner_group_patients  set npi = '1720461916' where npi = '1720431916';
 -- update dpoc_practitioners  set npi = '1518578855' where npi = '1518758855';
 -- update dpoc_practitioners  set npi = '1720461916' where npi = '1720431916';
 --
 
-    update
-    msh_physicians set npi = '1417586819', updated_at = now() WHERE npi = '147586819';
+update msh_physicians set npi = '1902473754', updated_at = now() WHERE npi = '1902479754';
+update msh_physicians set npi = '1417586819', updated_at = now() WHERE npi = '147586819';
+
 
 -- update oban.oban_jobs set state = 'discarded' where id = 194677239
 
