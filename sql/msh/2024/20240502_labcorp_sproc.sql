@@ -1,10 +1,11 @@
-CREATE PROCEDURE sp_lab_corp_stage_roster_patients()
+CREATE PROCEDURE sp_stage_lab_corp_roster_patients()
     LANGUAGE plpgsql
 AS
 $$
 BEGIN
 
-
+DROP TABLE IF EXISTS _pats;
+CREATE TEMP TABLE _pats AS
     SELECT
         first_name
       , NULL                                                   middle_name
@@ -18,8 +19,8 @@ BEGIN
       , NULL                                                   ssn4
       , NULL                                                   mrn
       , NULL                                                   ordering_account_number
-      , pa.line1
-      , pa.line2
+      , pa.line1 address_line1
+      , pa.line2 address_line2
       , pa.city
       , pa.state
       , LEFT(pa.postal_code, 5)                                zip5
@@ -28,9 +29,9 @@ BEGIN
       , COALESCE(mobile_cp.phone_number, home_cp.phone_number) primary_phone
       , mobile_cp.phone_number                                 cell_phone
       , home_cp.phone_number                                   home_phone
-      , NULL                                                   email
-      , pay.name
-      , NULL                                                   payer_grp_numb
+      , NULL                                                   email_address
+      , pay.name payer_name
+      , NULL                                                   payor_group_number
       , NULL                                                   member_id
       , sp.subscriber_id
       , sp.patient_id
@@ -48,6 +49,20 @@ BEGIN
     WHERE
         sp.is_md_portal_full
     ;
+    INSERT
+    INTO
+        lab_corp_roster_patients (patient_id, first_name, middle_name, last_name, dob, gender, race_code,
+                                  drivers_license_number, drivers_license_state, ssn9, ssn4, mrn, ordering_account_number,
+                                  address_line1, address_line2, city, state, zip5, zip4, country, primary_phone, cell_phone,
+                                  home_phone, email_address, payer_name, payor_group_number, member_id, subscriber_id,
+                                  record_indicator)
+    select
+      patient_id, first_name, middle_name, last_name, dob, gender, race_code,
+      drivers_license_number, drivers_license_state, ssn9, ssn4, mrn, ordering_account_number,
+      address_line1, address_line2, city, state, zip5, zip4, country, primary_phone, cell_phone,
+      home_phone, email_address, payer_name, payor_group_number, member_id, subscriber_id,
+      record_indicator
+    from _pats;
 
 END;
 $$;

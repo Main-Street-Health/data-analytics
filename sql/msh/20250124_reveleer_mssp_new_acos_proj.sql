@@ -73,9 +73,20 @@ call sp_reveleer_data_stager();
 SELECT reveleer_project_id, count(*)
 FROM
     reveleer_chase_file_details cfd
-where inserted_at::date = now()::date and reveleer_project_id in (298, 397)
+where inserted_at > now() - '2 weeks'::interval and reveleer_project_id in (298, 397)
 GROUP BY reveleer_project_id
 ;
 SELECT *
 FROM
     fdw_file_router.ftp_servers ;
+SELECT *
+FROM
+    reveleer_projects order by id desc;
+SELECT external_chase_id is null missing_reveleer_chase_id,  count(*)
+FROM
+    reveleer_chases rc
+WHERE
+    reveleer_project_id = 397
+GROUP BY external_chase_id
+;
+

@@ -219,7 +219,7 @@ FROM
 ------------------------------------------------------------------------------------------------------------------------
 /* POLY-ACH */
 ------------------------------------------------------------------------------------------------------------------------
-SELECT *
+SELECT distinct value_set_item
 FROM
     ref.med_adherence_measures m
 join ref.med_adherence_value_sets vs on vs.value_set_id = m.value_set_id
@@ -227,6 +227,8 @@ WHERE
       m.measure_id = 'POLY-ACH'
   AND m.measure_version = '2024'
   AND m.table_id = 'POLY-ACH-A'
+and m.is_med = 'Y'
+and m.is_exclusion = 'N'
 ;
 
 DROP TABLE IF EXISTS _elders;
