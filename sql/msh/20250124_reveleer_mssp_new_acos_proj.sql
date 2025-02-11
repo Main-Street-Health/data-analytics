@@ -182,8 +182,10 @@ SELECT *
 FROM
     fdw_file_router.ftp_servers where name ~* 'reveleer';
 
-
-
+SELECT *
+FROM
+    reveleer_projects where id = 397;
+-- 2886
 SELECT *
 FROM
     fdw_file_router.external_files
@@ -192,6 +194,116 @@ WHERE
 and s3_bucket is not null
 ORDER BY
     id DESC;
+SELECT *
+FROM
+--     inbound_file_logs
+inbound_file_config
+WHERE
+    ftp_server_name = 'reveleer_chase_success'
+ORDER BY
+    id DESC;
+
+SELECT *
+FROM
+    analytics.oban.oban_jobs
+WHERE
+      queue = 'inbound_files_processing'
+  AND args ->> 'name' = 'reveleer_chase_success'
+ORDER BY
+    id DESC;
 
 
+
+call sp_reveleer_stage_new_cca_pdfs_for_upload();
+------------------------------------------------------------------------------------------------------------------------
+/*  */
+------------------------------------------------------------------------------------------------------------------------
+SELECT *
+FROM
+         raw.reveleer_mssp_cqm_aco_members_2024_q3_alr a
+;
+SELECT *
+FROM
+    fdw_member_doc.qm_ref_measures where key ~* 'cbp';
+
+-- 4294 3415 total
+-- 492  460 emr
+-- 3802 2955 proxy
+
+DROP TABLE IF EXISTS _coop_measures;
+CREATE TEMP TABLE _coop_measures AS
+SELECT
+    pm.measure_source_key
+  , pm.id
+  , pm.patient_id
+  , pm.measure_status_key
+FROM
+    raw.reveleer_mssp_cqm_aco_members_2024_q3_alr a
+    JOIN fdw_member_doc.qm_patient_measures pm
+         ON pm.patient_id = a.patient_id
+             AND pm.measure_key = 'cbp_controlling_high_blood_pressure'
+             AND pm.operational_year = 2024
+             AND pm.is_active
+WHERE
+      contract_id = 'A5404'
+  AND a.patient_id IS NOT NULL;
+
+
+SELECT
+    measure_source_key
+  , COUNT(*)
+FROM
+    _coop_measures
+GROUP BY
+    measure_source_key
+;
+
+
+SELECT
+    measure_status_key
+  , COUNT(*)
+FROM
+    _coop_measures
+GROUP BY
+    1
+;
+
+SELECT *
+FROM
+    _coop_measures;
+
+-- in reveleer 3213
+SELECT count(*)
+FROM
+    reveleer_chases rc
+    JOIN _coop_measures cm ON rc.patient_id = cm.patient_id
+                                  AND rc.measure_code = 'CBP'
+                                  AND rc.yr = 2024
+;
+
+------------------------------------------------------------------------------------------------------------------------
+/*  */
+------------------------------------------------------------------------------------------------------------------------
+DROP TABLE IF EXISTS _aco_lookup;
+CREATE TEMP TABLE _aco_lookup AS
+SELECT *
+FROM
+    ( VALUES
+          ('A5334', 'Hickory'),
+      ('A5399', 'Juniper'),
+          ('A5401', 'Maple'),
+          ('A5402', 'Poplar'),
+          ('A5403', 'Sycamore'),
+          ('A5404', 'Willow'),
+          ('A5421', 'Dogwood'),
+          ('A5438', 'Hawthorn'),
+          ('A5439', 'Cottonwood'),
+          ('A5502', 'Cedar'),
+          ('A5400', 'Magnolia') ) x(contract_id, payer_name);
+
+SELECT external_chase_id, al.payer_name, rc.patient_id, rc.measure_code
+FROM
+    raw.reveleer_mssp_cqm_aco_members_2024_q3_alr r
+    join _aco_lookup al on al.contract_id = r.contract_id
+   join reveleer_chases rc on rc.patient_id = r.patient_id and rc.yr = 2024
 
