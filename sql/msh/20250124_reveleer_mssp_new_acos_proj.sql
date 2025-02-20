@@ -450,13 +450,21 @@ SELECT
 --     q.*
 --     is_active, count(*)
     COUNT(*)                                                  n
+, count(distinct qm_patient_measure_id)
 --   , COUNT(sp.patient_id)                                      n_pizza
 --   , COUNT(sp.patient_id) FILTER ( WHERE is_quality_measures ) n_pizza_qual
 FROM
     _unpivoted u
     JOIN _qms q ON q.id = u.qm_patient_measure_id
     LEFT JOIN _za sp ON sp.patient_id = u.patient_id
--- join raw.reveleer_mssp_cqm_aco_members_2024_q3_alr r on r.patient_id = u.patient_id
+join fdw_member_doc_stage.mssp_quality_measures r on r.patient_id = u.patient_id
+;
+SELECT *
+FROM
+    fdw_member_doc_stage.mssp_quality_measures;
+
+
+select distinct contract_id, reveleer_project_id from raw.reveleer_mssp_cqm_aco_members_2024_q3_alr r ;
 WHERE
       u.msh_chase_id ISNULL
   AND u.qm_patient_measure_id IS NOT NULL
@@ -473,7 +481,8 @@ SELECT
         fdw_member_doc.qm_patient_measures pqm
         JOIN _unpivoted u on u.qm_patient_measure_id = pqm.id
 --         JOIN fdw_member_doc.supreme_pizza sp ON sp.patient_id = pqm.patient_id
-        JOIN (select distinct patient_id, reveleer_project_id, contract_id from raw.reveleer_mssp_cqm_aco_members_2024_q3_alr) r on r.patient_id = pqm.patient_id
+--         JOIN (select distinct patient_id, reveleer_project_id, contract_id from raw.reveleer_mssp_cqm_aco_members_2024_q3_alr) r on r.patient_id = pqm.patient_id
+        JOIN fdw_member_doc_stage.mssp_quality_measures r on r.patient_id = pqm.patient_id and r.measure_key = pqm.measure_key and r.measure_year = pqm.operational_year
         JOIN _aco_lookup al on al.contract_id = r.contract_id
         JOIN ( SELECT id, UNNEST(measures_to_send) measures_to_send, payer_id FROM public.reveleer_projects ) ptr
              ON r.reveleer_project_id = ptr.id
@@ -531,7 +540,82 @@ group by patient_id, mbi, payer_id, member_id, contract_id
 ------------------------------------------------------------------------------------------------------------------------
 /*  */
 ------------------------------------------------------------------------------------------------------------------------
-call sp_reveleer_data_stager();
+call public.sp_reveleer_data_stager();
 SELECT *
 FROM
     _patient_measures where patient_id = 534125;
+------------------------------------------------------------------------------------------------------------------------
+/* */
+------------------------------------------------------------------------------------------------------------------------
+SELECT reveleer_chase_id, count(*)
+FROM
+    reveleer_chase_file_details
+WHERE
+    reveleer_file_id ISNULL
+GROUP BY  1
+HAVING count(*) > 1
+;
+-- DELETE
+-- FROM
+--     reveleer_chase_file_details d
+-- 
+-- WHERE
+--     EXISTS( SELECT
+--                 1
+--             FROM
+--                 ( SELECT
+--                       id
+--                 , ROW_NUMBER() OVER (PARTITION BY reveleer_chase_id ORDER BY inserted_at DESC) rn
+--                   FROM
+--                       reveleer_chase_file_details
+--                   WHERE
+--                         reveleer_file_id ISNULL
+--                     AND reveleer_chase_id IN (3994027, 5375226, 3941391) ) x
+--             where x.id = d.id
+--             and x.rn = 2
+--             );
+
+SELECT id, row_number() OVER (PARTITION BY reveleer_chase_id ORDER BY inserted_at desc) rn
+FROM
+    reveleer_chase_file_details
+WHERE
+      reveleer_file_id ISNULL
+  AND reveleer_chase_id IN (3994027, 5375226, 3941391);
+
+SELECT *
+FROM
+    analytics.oban.oban_jobs WHERE worker ~* 'reveleer' order by id desc;
+-- update oban.oban_jobs set state = 'available', scheduled_at = now() where id = 211570801;
+SELECT
+    COUNT(distinct rc.id)
+FROM
+    reveleer_chases rc
+join reveleer_chase_file_details d on d.reveleer_chase_id = rc.id and reveleer_file_id is not null
+WHERE
+    rc.reveleer_project_id IN (298, 397);
+SELECT *
+FROM
+    reveleer_chase_file_details where reveleer_file_id ISNULL ;
+SELECT
+    COUNT(distinct rc.id)
+FROM
+    reveleer_chases rc
+join reveleer_chase_file_details d on d.chase_id = rc.id and reveleer_file_id is not null
+WHERE
+    rc.reveleer_project_id IN (298, 397)
+-- and d.id ISNULL
+;
+
+
+UPDATE reveleer_chases rc
+SET
+    external_chase_id = j.rev_chase_id,
+    updated_at = NOW(),
+    is_confirmed_in_reveleer_system = TRUE,
+    confirmed_in_reveleer_system_at = NOW()
+FROM
+    junk.rev_chases_20250218 j
+WHERE
+      j.msh_chase_id = rc.id
+  AND rc.external_chase_id ISNULL
+;
