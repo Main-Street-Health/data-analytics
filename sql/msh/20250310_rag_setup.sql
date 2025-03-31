@@ -20,4 +20,25 @@ FROM
     newman.docs where id = 1;
 WHERE;
 
--- pg_dump --schema=etl --schema-only -h msh-prd-analytics.cluster-ro-culqpk9pcgmf.us-east-1.rds.amazonaws.com -p 5432 -U postgres -d analytics > etl_schema.sql
+
+-- drop TABLE newman.mattermost_chats;
+CREATE TABLE newman.mattermost_chats (
+    id              BIGSERIAL PRIMARY KEY,
+    username        TEXT,
+    channel         TEXT,
+    question        TEXT,
+    answer          TEXT,
+    messages        jsonb,
+    requests        INT,
+    request_tokens  BIGINT,
+    response_tokens BIGINT,
+    response_time_s decimal(16,3),
+    inserted_at     TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- TRUNCATE newman.mattermost_chats RESTART IDENTITY ;
+SELECT * FROM newman.mattermost_chats;
+
+SELECT *
+FROM
+    now();
