@@ -153,32 +153,92 @@ FROM
 WHERE
       rp.payer_id = 81
   AND rp.yr = 2024
-  AND rc.inserted_at > NOW() - '24 hours'::INTERVAL
+--   AND rc.inserted_at > NOW() - '36 hours'::INTERVAL
+  AND EXISTS( SELECT 1
+              FROM reveleer_chase_file_details cfd
+              WHERE cfd.reveleer_chase_id = rc.id AND cfd.reveleer_file_id IS NOT NULL )
 ;
+
+SELECT
+    rc.id                        msh_chase_id
+  , rc.external_chase_id         reveleer_chase_id
+  , rc.qm_patient_measure_ids[1] coop_qm_patient_measure_id
+  , rc.patient_id
+  , rc.measure_code
+  , rp.reveleer_id               rev_project_id
+FROM
+    reveleer_chases rc
+    JOIN reveleer_projects rp ON rc.reveleer_project_id = rp.id
+WHERE
+      rp.payer_id = 81
+  AND rp.yr = 2024
+  AND rc.inserted_at > NOW() - '36 hours'::INTERVAL
+  AND EXISTS( SELECT
+                  1
+              FROM
+                  reveleer_chase_file_details cfd
+              WHERE
+                    cfd.reveleer_chase_id = rc.id
+                AND cfd.reveleer_file_id IS NOT NULL )
+;
+
+
+
+SELECT
+    UNNEST(measures_to_send)
+FROM
+    reveleer_projects
+WHERE
+      payer_id = 81
+  AND yr = 2024;
+
+
+SELECT count(*)
+FROM
+    reveleer_cca_pdfs
+where inserted_at::date > now() - '2 days'::interval
+;
+
 
 SELECT *
 FROM
     analytics.oban.oban_jobs WHERE queue ~* 'reveleer';
 
+------------------------------------------------------------------------------------------------------------------------
+/* data as of 4/3 */
+------------------------------------------------------------------------------------------------------------------------
+SELECT *
+FROM
+    analytics.junk.rev_all_chases_proj_2886_040325;
+create INDEX on junk.rev_all_chases_proj_2886_040325(msh_chase_id);
+
+SELECT *
+FROM
+    reveleer_chases rc
+join junk.rev_all_chases_proj_2886_040325 j on j.msh_chase_id = rc.id
+where rc.external_chase_id ISNULL
+;
 
 
--- select distinct
---     case
---         when pred_percentile between 0 and 20 then '0-25'
---         when pred_percentile between 20 and 40 then '25-50'
---         when pred_percentile between 40 and 60 then '40-60'
---         when pred_percentile between 60 and 80 then '60-80'
---         when pred_percentile between 80 and 90 then '80-90'
---         when pred_percentile between 90 and 95 then '90-95'
---         when pred_percentile between 95 and 99 then '95-99'
---         when pred_percentile > 99 then '99+'
---         else null end as pred_percentile_bucket,
---         avg(tc_pmpm_tg) as avg_actual_pmpm,
---         percentile_cont(0.5) within group ( order by tc_pmpm_tg ) as median_actual_pmpm,
---         min(tc_pmpm_tg) as min_actual_pmpm,
---         max(tc_pmpm_tg) as max_actual_pmpm,
---         count(distinct member_id) as members
--- from
---     dh.cost_preds_output
---
--- group by 1
+
+
+select distinct
+    case
+        when pred_percentile between 0 and 20 then '0-25'
+        when pred_percentile between 20 and 40 then '25-50'
+        when pred_percentile between 40 and 60 then '40-60'
+        when pred_percentile between 60 and 80 then '60-80'
+        when pred_percentile between 80 and 90 then '80-90'
+        when pred_percentile between 90 and 95 then '90-95'
+        when pred_percentile between 95 and 99 then '95-99'
+        when pred_percentile > 99 then '99+'
+        else null end as pred_percentile_bucket,
+        avg(tc_pmpm_tg) as avg_actual_pmpm,
+        percentile_cont(0.5) within group ( order by tc_pmpm_tg ) as median_actual_pmpm,
+        min(tc_pmpm_tg) as min_actual_pmpm,
+        max(tc_pmpm_tg) as max_actual_pmpm,
+        count(distinct member_id) as members
+from
+    dh.cost_preds_output
+
+group by 1
