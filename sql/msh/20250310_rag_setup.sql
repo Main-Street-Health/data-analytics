@@ -37,7 +37,7 @@ CREATE TABLE newman.mattermost_chats (
 );
 
 -- TRUNCATE newman.mattermost_chats RESTART IDENTITY ;
-SELECT * FROM newman.mattermost_chats;
+SELECT * FROM newman.mattermost_chats order by id;
 
 SELECT *
 FROM
