@@ -1,13 +1,15 @@
-CREATE OR REPLACE PROCEDURE sp_dpc_stage_monthly()
+CREATE OR REPLACE FUNCTION dpc_stage_spin_cycle_fn() RETURNS integer
     LANGUAGE plpgsql
 AS
 $$
 BEGIN
     ------------------------------------------------------------------------------------------------------------------------
-    /* Monthly export of full data for all dpc patients  */
+    /* Focussed on pulling coverage for patients that have not previously had a successful dpc hit  */
     ------------------------------------------------------------------------------------------------------------------------
+
     -- refresh patients
     call public.sp_dpc_refresh_dpc_patients();
+--     SELECT * FROM dpoc_patients where is_active;
 
     DROP TABLE IF EXISTS _pats;
     CREATE TEMP TABLE _pats AS
@@ -16,8 +18,14 @@ BEGIN
         public.dpoc_patients dp
     WHERE
           dp.is_active
+      AND (
+                  dp.bene_id IS NULL
+                  OR NOT EXISTS( SELECT 1 FROM public.dpoc_coverage dc WHERE dc.patient = dp.bene_id )
+              )
     ;
---     select count(*) from _pats;
+--     CREATE TEMP TABLE _pats AS
+--     select j.patient_id, j.patient_mbi mbi from junk.dpc_pats_to_run_for_sean20240125 j -- junk.dpc_pats_to_run_for_sean20240116 j
+--     join dpoc_patients dp on dp.source_id = j.patient_id ;
     create UNIQUE INDEX on _pats(patient_id);
     create UNIQUE INDEX on _pats(mbi);
 
@@ -53,16 +61,32 @@ BEGIN
     CREATE INDEX ON _last_export_results(mbi);
     CREATE INDEX ON _last_export_results(npi);
 
+    DELETE FROM _pats p
+    where exists(select 1 from _last_export_results ler where ler.mbi = p.mbi and ler.last_exported_at > now() - '1 week'::interval)
+    ;
 
-    -- remove folks that have been exported EOB recently. Due to provider limit we have to do multiple monthly runs
-    -- only delete successfully exported, likely have room to attempt failures again with different npi
-    DELETE FROM _pats p WHERE exists(select 1 from _last_export_results ler where ler.mbi = p.mbi and not ler.has_export_error and ler.export_type like '%ExplanationOfBenefit%' and ler.last_exported_at >= now() - '1 week'::interval);
+    DELETE FROM _last_export_results ler
+    where exists(select 1 from _pats p where ler.mbi = p.mbi)
+    ;
+
+    UPDATE fdw_member_doc.dpc_patient_physicians p
+    SET
+        last_sent_to_dpc_at     = ler.last_exported_at
+      , last_returned_by_dpc_at = CASE WHEN ler.has_export_error THEN p.last_returned_by_dpc_at
+                                       ELSE ler.last_exported_at END
+      , updated_at              = NOW()
+    FROM
+        _last_export_results ler
+    WHERE
+          ler.mbi = p.mbi
+      AND ler.npi = p.npi
+      AND ler.last_exported_at > p.last_sent_to_dpc_at;
+
 
 --     select * from _pats p
 --     join _last_export_results ler on ler.mbi = p.mbi and not ler.has_export_error
 --     SELECT * FROM dpoc_patients where mbi = '1ER0FF6CW09';
 --     select count(*) from dpoc_patients where mbis isnull;
-
 
 
 -- pull all pats primary phys (filtering out failed is wicked slow, delete them out below)
@@ -86,31 +110,20 @@ BEGIN
         _possible_phys (patient_id, npi, mbi, rank)
     SELECT
         sp.patient_id
-      , mp.npi
+      , ph.npi
       , sp.patient_mbi
-      , ph.appts_physician_rank
+      , ph.provider_rank
     FROM
-        fdw_member_doc_stage.patient_physician_location_hierarchy ph
-        JOIN fdw_member_doc.msh_physicians mp ON mp.id = ph.msh_physician_id
-        JOIN fdw_member_doc.supreme_pizza sp ON sp.patient_id = ph.patient_id
-    where sp.is_dpc and sp.patient_mbi is not null
+        fdw_member_doc.dpc_patient_physicians ph
+        JOIN fdw_member_doc.supreme_pizza sp ON sp.patient_mbi = ph.mbi
+    where sp.is_dpc
+    and exists(select 1
+               from fdw_member_doc.msh_physicians mp2
+               where mp2.npi::text = ph.npi
+               and mp2.first_name is not null
+               and mp2.last_name is not null
+               )
     ON CONFLICT DO NOTHING;
-
--- Add in previously successful providers
-    INSERT INTO _possible_phys (patient_id, npi, mbi, rank)
-    SELECT DISTINCT ON (p.source_id)
-        p.source_id
-      , ler.npi
-      , ler.mbi
-      , -1
-    FROM
-        _last_export_results ler
-        JOIN dpoc_patients p ON p.mbi = ler.mbi AND p.is_active
-    WHERE
-        NOT ler.has_export_error
-    ORDER BY p.source_id, ler.last_exported_at DESC
-    ON CONFLICT DO NOTHING
-;
 
 -- remove patients that don't need spin cycle
     DELETE
@@ -189,8 +202,7 @@ BEGIN
     )
     ORDER BY mbi, rank, row_num;
 
--- SELECT count(distinct mbi) FROM _possible_phys pp where not exists(select 1 from _assigned_patients ap where ap.mbi = pp.mbi);
--- 1111
+-- SELECT * FROM _possible_phys pp where not exists(select 1 from _assigned_patients ap where ap.mbi = pp.mbi);
 
 ------------------------------------------------------------------------------------------------------------------------
 /* Update practitioners */
@@ -232,6 +244,12 @@ from _providers_to_run ptr
 where ptr.npi = dp.npi
 and not dp.is_active;
 
+update dpoc_practitioners dp
+set last_exported_at = null, updated_at = now()
+from _providers_to_run ptr
+where ptr.npi = dp.npi
+and not dp.is_active;
+
 -- make active practitioners inactive
 update dpoc_practitioners dp
 set updated_at = now(), is_active = false
@@ -240,38 +258,6 @@ and not exists(select 1 from _providers_to_run ptr where ptr.npi = dp.npi);
 
 -- No need to selectively add or remove since the roster is stored on the job
 TRUNCATE dpoc_practitioner_group_patients;
--- WITH
---     archived AS (
---         INSERT
---             INTO
---                 dpoc_practitioner_group_patients_history(id, npi, mbi, is_registered, last_refreshed_at,
---                                                          dpoc_provider_org_id, archived_at, inserted_at, updated_at)
---                 SELECT
---                     id
---                   , npi
---                   , mbi
---                   , is_registered
---                   , last_refreshed_at
---                   , dpoc_provider_org_id
---                   , NOW() archived_at
---                   , inserted_at
---                   , updated_at
---                 FROM
---                     dpoc_practitioner_group_patients gp
---                 WHERE
---                     NOT EXISTS( SELECT
---                                     1
---                                 FROM
---                                     _providers_to_run ptr
---                                 WHERE
---                                     ptr.npi = gp.npi )
---                 RETURNING * )
--- DELETE
--- FROM
---     dpoc_practitioner_group_patients pgp
--- WHERE
---     EXISTS( SELECT 1 FROM archived a WHERE a.id = pgp.id );
-
 
 ------------------------------------------------------------------------------------------------------------------------
 /* Populate practitioner group patients */
@@ -289,62 +275,15 @@ TRUNCATE dpoc_practitioner_group_patients;
         _assigned_patients ap
     ON CONFLICT DO NOTHING
     ;
+        -- return how many patients didn't make it due to the 750 provider count limit
+    RETURN (SELECT
+                     COUNT(DISTINCT mbi)
+                 FROM
+                     _assigned_patients ap
+                 WHERE
+                     NOT EXISTS( SELECT 1 FROM _providers_to_run ptr WHERE ptr.npi = ap.npi ));
+
+
 END;
 
 $$;
-
-
-
--- create index on dpoc_bulk_export_job_outputs(dpoc_bulk_export_job_id)
-SELECT count(*) FROM dpoc_bulk_export_job_outputs;
-call zzzzsp_dpc_stage_spin_cycle();
-
-create table junk.still_need_to_run_dpc_20230905 as
-SELECT ap.*
-FROM
-    _assigned_patients ap
-    left join _providers_to_run r on r.npi = ap.npi
-where r.npi isnull
-;
-SELECT count(*)
-FROM
-    junk.still_need_to_run_dpc_20230905;
-
-SELECT count(*)
-FROM
-    _pats; -- 42522
-SELECT count(*) -- 67165
-FROM
-    dpoc_practitioner_group_patients;
-
-SELECT
-    state
-  , COUNT(*)
-FROM
-    oban.oban_jobs
-WHERE
-      queue = 'dpoc_bulk_export_worker'
-  AND worker = 'Deus.DPOC.BulkExportAPIWorker'
-  AND inserted_at::DATE >= '2023-09-05'
---       AND inserted_at::DATE >= now()::date
-GROUP BY
-    1;
-
-
-SELECT *
-FROM
-    oban.oban_jobs
-WHERE
-      worker ~* 'DPOC'
-  AND inserted_at::DATE >= '2023-09-05'
-  AND state = 'discarded'
---   and state = 'retryable'
---   and state not in  ('completed')
-ORDER BY
-    id DESC;
-
-select etl.dpc_load_prd_dpc_eligibility();
-select etl.dpc_eligibility_to_coop_current_coverage();
-SELECT *
-FROM
-    pg_stat_activity where state != 'idle';

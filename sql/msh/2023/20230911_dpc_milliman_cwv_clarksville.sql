@@ -330,7 +330,7 @@ TRUNCATE dpoc_practitioner_group_patients;
 
 -- create index on dpoc_bulk_export_job_outputs(dpoc_bulk_export_job_id)
 SELECT count(*) FROM dpoc_bulk_export_job_outputs;
-call sp_dpc_stage_spin_cycle();
+call zzzzsp_dpc_stage_spin_cycle();
 
 create table junk.still_need_to_run_dpc_20230905 as
 SELECT ap.*

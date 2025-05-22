@@ -41,6 +41,23 @@ WHERE
 ORDER BY
     id DESC;
 
+SELECT
+    mbi
+  , npi
+  , min_appt_date
+  , max_appt_date
+  , appt_count
+  , min_claim_date
+  , max_claim_date
+  , claim_count
+  , provider_rank
+  , last_sent_to_dpc_at
+  , last_returned_by_dpc_at
+  , inserted_at
+  , updated_at
+FROM
+    dpc_patient_physicians;
+
 
 
 
@@ -52,7 +69,7 @@ FROM
 WHERE
       queue = 'dpoc_bulk_export_worker'
 -- worker = 'Deus.DPOC.BulkExportAPIWorker'
-  AND inserted_at >= '2025-01-01'
+  AND inserted_at >= '2025-05-01'
 GROUP BY
     1;
 
