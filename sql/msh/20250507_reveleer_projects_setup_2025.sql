@@ -291,3 +291,12 @@ VALUES ('wellmark',50, NULL, 3076, 2025, TRUE);
 -- Wellmed
 INSERT INTO reveleer_projects (name, payer_id, state_payer_id, reveleer_id, yr, is_active)
 VALUES ('wellmed', 147, NULL, 3077, 2025, TRUE);
+
+-- Optum
+INSERT INTO reveleer_projects (name, payer_id, state_payer_id, reveleer_id, yr, is_active)
+VALUES ('Optum', 308, NULL, 3200, 2025, TRUE);
+
+-- HCSC (BCBS IL, OK, NM, MT, & TX)
+INSERT INTO reveleer_projects (name, payer_id, state_payer_id, reveleer_id, yr, is_active)
+VALUES ('HCSC (BCBS IL, OK, NM, MT, & TX)', 42, NULL, 3236, 2025, TRUE);
+
