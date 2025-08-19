@@ -62,7 +62,6 @@ def preprocess_new_data(df, top_features, categorical_cols, encoders):
             # Fill missing values with the same 'missing' placeholder and ensure string type
             df_processed[col] = df_processed[col].fillna('missing').astype(str)
             
-            # --- FIX STARTS HERE ---
             # Handle new, unseen categories in the data robustly.
             known_classes = set(le.classes_)
             
@@ -73,7 +72,6 @@ def preprocess_new_data(df, top_features, categorical_cols, encoders):
             df_processed[col] = df_processed[col].apply(
                 lambda x: x if x in known_classes else fallback_value
             )
-            # --- FIX ENDS HERE ---
             
             # Now transform
             df_processed[col] = le.transform(df_processed[col])
